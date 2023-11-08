@@ -33,20 +33,19 @@ def upscale_img(image: PILImage, pp_options: PostProcessingOptions) -> PILImage:
 
 
 def restore_face(image: Image.Image, pp_options: PostProcessingOptions) -> Image.Image:
-    if pp_options.face_restorer is not None:
-        original_image = image.copy()
-        logger.info("Restore face with %s", pp_options.face_restorer.name())
-        numpy_image = np.array(image)
-        if pp_options.face_restorer_name == "CodeFormer":
-            numpy_image = codeformer_model.codeformer.restore(
-                numpy_image, w=pp_options.codeformer_weight
-            )
-        else:
-            numpy_image = pp_options.face_restorer.restore(numpy_image)
-
-        restored_image = Image.fromarray(numpy_image)
-        result_image = Image.blend(
-            original_image, restored_image, pp_options.restorer_visibility
+    if pp_options.face_restorer is None:
+        return image
+    original_image = image.copy()
+    logger.info("Restore face with %s", pp_options.face_restorer.name())
+    numpy_image = np.array(image)
+    if pp_options.face_restorer_name == "CodeFormer":
+        numpy_image = codeformer_model.codeformer.restore(
+            numpy_image, w=pp_options.codeformer_weight
         )
-        return result_image
-    return image
+    else:
+        numpy_image = pp_options.face_restorer.restore(numpy_image)
+
+    restored_image = Image.fromarray(numpy_image)
+    return Image.blend(
+        original_image, restored_image, pp_options.restorer_visibility
+    )

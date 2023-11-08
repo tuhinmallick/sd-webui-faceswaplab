@@ -7,7 +7,7 @@ from scripts.faceswaplab_ui.faceswaplab_inpainting_ui import face_inpainting_ui
 
 
 def postprocessing_ui() -> List[gr.components.Component]:
-    with gr.Tab(f"Global Post-Processing"):
+    with gr.Tab("Global Post-Processing"):
         gr.Markdown(
             """Upscaling is performed on the whole image and all faces (including not swapped). Upscaling happens before face restoration."""
         )

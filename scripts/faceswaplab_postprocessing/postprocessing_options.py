@@ -32,17 +32,25 @@ class PostProcessingOptions:
 
     @property
     def upscaler(self) -> Optional[UpscalerData]:
-        for upscaler in shared.sd_upscalers:
-            if upscaler.name == self.upscaler_name:
-                return upscaler
-        return None
+        return next(
+            (
+                upscaler
+                for upscaler in shared.sd_upscalers
+                if upscaler.name == self.upscaler_name
+            ),
+            None,
+        )
 
     @property
     def face_restorer(self) -> Optional[FaceRestoration]:
-        for face_restorer in shared.face_restorers:
-            if face_restorer.name() == self.face_restorer_name:
-                return face_restorer
-        return None
+        return next(
+            (
+                face_restorer
+                for face_restorer in shared.face_restorers
+                if face_restorer.name() == self.face_restorer_name
+            ),
+            None,
+        )
 
     @staticmethod
     def from_api_dto(

@@ -16,10 +16,7 @@ def is_sha1_matching(file_path: str, expected_sha1: str) -> bool:
         with open(file_path, "rb") as file:
             for byte_block in iter(lambda: file.read(4096), b""):
                 sha1_hash.update(byte_block)
-            if sha1_hash.hexdigest() == expected_sha1:
-                return True
-            else:
-                return False
+            return sha1_hash.hexdigest() == expected_sha1
     except Exception as e:
         logger.error(
             "Failed to check model hash, check the model is valid or has been downloaded adequately : %e",

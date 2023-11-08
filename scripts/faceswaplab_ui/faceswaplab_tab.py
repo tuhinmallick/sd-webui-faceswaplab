@@ -67,9 +67,6 @@ def extract_faces(
                          If no faces are found, None is returned.
     """
 
-    if files and len(files) == 0:
-        logger.error("You need at least one image file to extract")
-        return []
     try:
         postprocess_options = dataclasses_from_flat_list(
             [PostProcessingOptions], components
@@ -77,10 +74,11 @@ def extract_faces(
         images = [
             Image.open(file.name) for file in files  # type: ignore
         ]  # potentially greedy but Image.open is supposed to be lazy
-        result_images = swapper.extract_faces(
-            images, extract_path=extract_path, postprocess_options=postprocess_options
+        return swapper.extract_faces(
+            images,
+            extract_path=extract_path,
+            postprocess_options=postprocess_options,
         )
-        return result_images
     except Exception as e:
         logger.error("Failed to extract : %s", e)
 
@@ -193,9 +191,7 @@ def explore_onnx_faceswap_model(model_path: str) -> pd.DataFrame:
                 for attr in node.attribute:
                     attr_name = attr.name
                     attr_value = attr.t
-                    attributes.append(
-                        "{} = {}".format(pformat(attr_name), pformat(attr_value))
-                    )
+                    attributes.append(f"{pformat(attr_name)} = {pformat(attr_value)}")
                 data["Attributes"].append(attributes)
 
         df = pd.DataFrame(data)

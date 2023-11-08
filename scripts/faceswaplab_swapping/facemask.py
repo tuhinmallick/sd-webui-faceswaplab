@@ -118,7 +118,4 @@ def generate_face_mask(face_image: np.ndarray, device: torch.device) -> np.ndarr
     for idx, color in enumerate(MASK_COLOR_MAP):
         parse_mask[model_output == idx] = color
 
-    # Resize the mask to match the original image
-    face_mask = cv2.resize(parse_mask, (face_image.shape[1], face_image.shape[0]))
-
-    return face_mask
+    return cv2.resize(parse_mask, (face_image.shape[1], face_image.shape[0]))

@@ -164,15 +164,13 @@ def batch_process(
             os.makedirs(save_path, exist_ok=True)
 
         units = [u for u in units if u.enable]
-        if src_images is not None and len(units) > 0:
+        if src_images is not None and units:
             result_images = []
             for src_image in src_images:
                 path: str = ""
                 if isinstance(src_image, str):
                     if save_path:
-                        path = os.path.join(
-                            save_path, "swapped_" + os.path.basename(src_image)
-                        )
+                        path = os.path.join(save_path, f"swapped_{os.path.basename(src_image)}")
                     src_image = Image.open(src_image)
                 elif save_path:
                     path = tempfile.NamedTemporaryFile(
@@ -236,9 +234,7 @@ def extract_faces(
         if images:
             result_images: list[PILImage] = []
             for img in images:
-                faces = get_faces(pil_to_cv2(img))
-
-                if faces:
+                if faces := get_faces(pil_to_cv2(img)):
                     face_images = []
                     for face in faces:
                         bbox = face.bbox.astype(int)  # type: ignore
@@ -432,12 +428,10 @@ def get_faces(
                     img_data, det_size=det_size_half, det_thresh=det_thresh
                 )
 
-        # If no faces are detected print a warning to user about change in detection
-        else:
-            if det_size[0] > 320:
-                logger.warning(
-                    "No faces detected, you might want to play with det_size by reducing it (in sd global settings). Lower (320) means more detection but less precise. Or activate auto-det-size."
-                )
+        elif det_size[0] > 320:
+            logger.warning(
+                "No faces detected, you might want to play with det_size by reducing it (in sd global settings). Lower (320) means more detection but less precise. Or activate auto-det-size."
+            )
 
     try:
         # Sort the detected faces based on their x-coordinate of the bounding box
@@ -548,7 +542,7 @@ def get_faces_from_img_files(images: List[PILImage]) -> List[Face]:
 
     faces: List[Face] = []
 
-    if len(images) > 0:
+    if images:
         for img in images:
             face = get_or_default(
                 get_faces(pil_to_cv2(img)), 0, None
@@ -574,38 +568,27 @@ def blend_faces(faces: List[Face], gender: Gender = Gender.AUTO) -> Optional[Fac
         ValueError: If the embeddings have different shapes.
 
     """
-    embeddings: list[Any] = [face.embedding for face in faces]
+    if not (embeddings := [face.embedding for face in faces]):
+        # Return None if the input list is empty
+        return None
+    embedding_shape = embeddings[0].shape
 
-    if len(embeddings) > 0:
-        embedding_shape = embeddings[0].shape
+    # Check if all embeddings have the same shape
+    for embedding in embeddings:
+        if embedding.shape != embedding_shape:
+            raise ValueError("embedding shape mismatch")
 
-        # Check if all embeddings have the same shape
-        for embedding in embeddings:
-            if embedding.shape != embedding_shape:
-                raise ValueError("embedding shape mismatch")
+    # Compute the mean of all embeddings
+    blended_embedding = np.mean(embeddings, axis=0)
 
-        # Compute the mean of all embeddings
-        blended_embedding = np.mean(embeddings, axis=0)
+    int_gender: int = faces[0].gender if gender == Gender.AUTO else gender.value
+    assert -1 < int_gender < 2, "wrong gender"
 
-        if gender == Gender.AUTO:
-            int_gender: int = faces[0].gender  # type: ignore
-        else:
-            int_gender: int = gender.value
+    logger.info("Int Gender : %s", int_gender)
 
-        assert -1 < int_gender < 2, "wrong gender"
-
-        logger.info("Int Gender : %s", int_gender)
-
-        # Create a new Face object using the properties of the first face in the list
-        # Assign the blended embedding to the blended Face object
-        blended = ISFace(
-            embedding=blended_embedding, gender=int_gender, age=faces[0].age
-        )
-
-        return blended
-
-    # Return None if the input list is empty
-    return None
+    return ISFace(
+        embedding=blended_embedding, gender=int_gender, age=faces[0].age
+    )
 
 
 def swap_face(
@@ -765,13 +748,12 @@ def process_image_unit(
             save_img_debug(result.image, "After swap")
 
             if unit.compute_similarity:
-                similarities = compute_similarity(
+                if similarities := compute_similarity(
                     reference_face=reference_face,
                     source_face=src_face,
                     swapped_image=result.image,
                     filtering=face_filtering_options,
-                )
-                if similarities:
+                ):
                     (result.similarity, result.ref_similarity) = similarities
                 else:
                     logger.error("Failed to compute similarity")
@@ -829,7 +811,7 @@ def process_images_units(
             and its associated info string. If no units are provided for processing, returns None.
 
     """
-    if len(units) == 0:
+    if not units:
         logger.info("Finished processing image, return %s images", len(images))
         return None
 
@@ -840,8 +822,9 @@ def process_images_units(
         logger.debug("Processing image %s", i)
         swapped = process_image_unit(model, units[0], image, info, force_blend)
         logger.debug("Image %s -> %s images", i, len(swapped))
-        nexts = process_images_units(model, units[1:], swapped, force_blend)
-        if nexts:
+        if nexts := process_images_units(
+            model, units[1:], swapped, force_blend
+        ):
             processed_images.extend(nexts)
         else:
             processed_images.extend(swapped)

@@ -519,10 +519,7 @@ class NormLayer(nn.Module):
             assert 1 == 0, f"Norm type {norm_type} not support."
 
     def forward(self, x, ref=None):
-        if self.norm_type == "spade":
-            return self.norm(x, ref)
-        else:
-            return self.norm(x)
+        return self.norm(x, ref) if self.norm_type == "spade" else self.norm(x)
 
 
 class ReluLayer(nn.Module):
@@ -661,22 +658,20 @@ class ParseNet(nn.Module):
         up_steps = int(np.log2(out_size // min_feat_size))
 
         # =============== define encoder-body-decoder ====================
-        self.encoder = []
-        self.encoder.append(ConvLayer(3, base_ch, 3, 1))
+        self.encoder = [ConvLayer(3, base_ch, 3, 1)]
         head_ch = base_ch
-        for i in range(down_steps):
+        for _ in range(down_steps):
             cin, cout = ch_clip(head_ch), ch_clip(head_ch * 2)
             self.encoder.append(ResidualBlock(cin, cout, scale="down", **act_args))
             head_ch = head_ch * 2
 
         self.body = []
-        for i in range(res_depth):
-            self.body.append(
-                ResidualBlock(ch_clip(head_ch), ch_clip(head_ch), **act_args)
-            )
-
+        self.body.extend(
+            ResidualBlock(ch_clip(head_ch), ch_clip(head_ch), **act_args)
+            for _ in range(res_depth)
+        )
         self.decoder = []
-        for i in range(up_steps):
+        for _ in range(up_steps):
             cin, cout = ch_clip(head_ch), ch_clip(head_ch // 2)
             self.decoder.append(ResidualBlock(cin, cout, scale="up", **act_args))
             head_ch = head_ch // 2
