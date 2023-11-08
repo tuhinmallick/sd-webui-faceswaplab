@@ -82,7 +82,7 @@ class FaceSwapScript(scripts.Script):
     @property
     def enabled(self) -> bool:
         """Return True if any unit is enabled and the state is not interupted"""
-        return any([u.enable for u in self.units]) and not shared.state.interrupted
+        return any(u.enable for u in self.units) and not shared.state.interrupted
 
     @property
     def keep_original_images(self) -> bool:
@@ -97,7 +97,7 @@ class FaceSwapScript(scripts.Script):
         return [u for u in self.units if u.swap_in_source and u.enable]
 
     def title(self) -> str:
-        return f"faceswaplab"
+        return "faceswaplab"
 
     def show(self, is_img2img: bool) -> bool:
         return scripts.AlwaysVisible  # type: ignore

@@ -61,7 +61,7 @@ def build_face_checkpoint_and_save(
         images = images or []
         logger.info("Build %s with %s images", name, len(images))
         faces: List[Face] = swapper.get_faces_from_img_files(images=images)
-        if faces is None or len(faces) == 0:
+        if faces is None or not faces:
             logger.error("No source faces found")
             return None
 
@@ -124,7 +124,7 @@ def build_face_checkpoint_and_save(
                             )
                             file_number += 1
                 save_face(filename=file_path, face=blended_face)
-                preview_image.save(file_path + ".png")
+                preview_image.save(f"{file_path}.png")
                 try:
                     data = load_face(file_path)
                     logger.debug(data)

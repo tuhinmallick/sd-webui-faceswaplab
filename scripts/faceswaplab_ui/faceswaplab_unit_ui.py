@@ -9,7 +9,7 @@ from scripts.faceswaplab_utils.sd_utils import get_sd_option
 def faceswap_unit_advanced_options(
     is_img2img: bool, unit_num: int = 1, id_prefix: str = "faceswaplab_"
 ) -> List[gr.components.Component]:
-    with gr.Accordion(f"Post-Processing & Advanced Mask Options", open=False):
+    with gr.Accordion("Post-Processing & Advanced Mask Options", open=False):
         gr.Markdown(
             """Post-processing and mask settings for unit faces. Best result : checks all, use LDSR, use Codeformer"""
         )

@@ -150,8 +150,7 @@ class FaceSwapUnit(BaseModel):
     def get_batch_images(self) -> List[Image.Image]:
         images = []
         if self.batch_images:
-            for img in self.batch_images:
-                images.append(base64_to_pil(img))
+            images.extend(base64_to_pil(img) for img in self.batch_images)
         return images
 
 

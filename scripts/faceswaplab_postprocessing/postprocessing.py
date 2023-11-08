@@ -15,20 +15,20 @@ def enhance_image(image: Image.Image, pp_options: PostProcessingOptions) -> Imag
         logger.debug("enhance_image, inpainting : %s", pp_options.inpainting_when)
         result_image = image
 
-        if (
-            pp_options.inpainting_when == InpaintingWhen.BEFORE_UPSCALING.value
-            or pp_options.inpainting_when == InpaintingWhen.BEFORE_UPSCALING
-        ):
+        if pp_options.inpainting_when in [
+            InpaintingWhen.BEFORE_UPSCALING.value,
+            InpaintingWhen.BEFORE_UPSCALING,
+        ]:
             logger.debug("Inpaint before upscale")
             result_image = img2img_diffusion(
                 img=result_image, options=pp_options.inpainting_options
             )
         result_image = upscale_img(result_image, pp_options)
 
-        if (
-            pp_options.inpainting_when == InpaintingWhen.BEFORE_RESTORE_FACE.value
-            or pp_options.inpainting_when == InpaintingWhen.BEFORE_RESTORE_FACE
-        ):
+        if pp_options.inpainting_when in [
+            InpaintingWhen.BEFORE_RESTORE_FACE.value,
+            InpaintingWhen.BEFORE_RESTORE_FACE,
+        ]:
             logger.debug("Inpaint before restore")
             result_image = img2img_diffusion(
                 result_image, pp_options.inpainting_options
@@ -36,10 +36,10 @@ def enhance_image(image: Image.Image, pp_options: PostProcessingOptions) -> Imag
 
         result_image = restore_face(result_image, pp_options)
 
-        if (
-            pp_options.inpainting_when == InpaintingWhen.AFTER_ALL.value
-            or pp_options.inpainting_when == InpaintingWhen.AFTER_ALL
-        ):
+        if pp_options.inpainting_when in [
+            InpaintingWhen.AFTER_ALL.value,
+            InpaintingWhen.AFTER_ALL,
+        ]:
             logger.debug("Inpaint after all")
             result_image = img2img_diffusion(
                 result_image, pp_options.inpainting_options

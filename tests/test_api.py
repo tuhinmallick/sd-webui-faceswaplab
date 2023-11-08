@@ -65,14 +65,11 @@ def face_swap_request() -> FaceSwapRequest:
             inpainting_denoising_strengh=0.1,
         ),
     )
-    # Prepare the request
-    request = FaceSwapRequest(
+    return FaceSwapRequest(
         image=pil_to_base64("tests/test_image.png"),
         units=[unit1, unit2],
         postprocessing=pp,
     )
-
-    return request
 
 
 def test_version() -> None:

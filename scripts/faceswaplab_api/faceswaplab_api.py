@@ -65,10 +65,7 @@ def encode_np_to_base64(image: np.ndarray) -> str:  # type: ignore
 def get_faceswap_units_settings(
     api_units: List[api_utils.FaceSwapUnit],
 ) -> List[FaceSwapUnitSettings]:
-    units = []
-    for u in api_units:
-        units.append(FaceSwapUnitSettings.from_api_dto(u))
-    return units
+    return [FaceSwapUnitSettings.from_api_dto(u) for u in api_units]
 
 
 def faceswaplab_api(_: gr.Blocks, app: FastAPI) -> None:
@@ -142,12 +139,12 @@ def faceswaplab_api(_: gr.Blocks, app: FastAPI) -> None:
         return response
 
     @app.post(
-        "/faceswaplab/build",
-        tags=["faceswaplab"],
-        description="Build a face checkpoint using base64 images, return base64 satetensors",
-    )
+            "/faceswaplab/build",
+            tags=["faceswaplab"],
+            description="Build a face checkpoint using base64 images, return base64 satetensors",
+        )
     async def build(base64_images: List[str]) -> Optional[str]:
-        if len(base64_images) > 0:
+        if base64_images:
             pil_images = [base64_to_pil(img) for img in base64_images]
             with tempfile.NamedTemporaryFile(
                 delete=True, suffix=".safetensors"

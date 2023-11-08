@@ -88,8 +88,7 @@ def torch_to_pil(tensor: torch.Tensor) -> List[PILImage]:
     if images.ndim == 3:
         images = images[None, ...]
     images = (images * 255).round().astype("uint8")
-    pil_images = [Image.fromarray(image) for image in images]
-    return pil_images
+    return [Image.fromarray(image) for image in images]
 
 
 def pil_to_torch(pil_images: Union[PILImage, List[PILImage]]) -> torch.Tensor:
@@ -108,12 +107,9 @@ def pil_to_torch(pil_images: Union[PILImage, List[PILImage]]) -> torch.Tensor:
     """
     if isinstance(pil_images, list):
         numpy_images = [np.array(image) for image in pil_images]
-        torch_images = torch.from_numpy(np.stack(numpy_images)).permute(0, 3, 1, 2)
-        return torch_images
-
+        return torch.from_numpy(np.stack(numpy_images)).permute(0, 3, 1, 2)
     numpy_image = np.array(pil_images)
-    torch_image = torch.from_numpy(numpy_image).permute(2, 0, 1)
-    return torch_image
+    return torch.from_numpy(numpy_image).permute(2, 0, 1)
 
 
 def create_square_image(image_list: List[PILImage]) -> Optional[PILImage]:

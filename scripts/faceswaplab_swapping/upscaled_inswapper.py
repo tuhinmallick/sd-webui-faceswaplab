@@ -19,12 +19,15 @@ from scripts.faceswaplab_utils.faceswaplab_logging import logger
 
 
 def get_upscaler() -> Optional[UpscalerData]:
-    for upscaler in shared.sd_upscalers:
-        if upscaler.name == get_sd_option(
-            "faceswaplab_upscaled_swapper_upscaler", "LDSR"
-        ):
-            return upscaler
-    return None
+    return next(
+        (
+            upscaler
+            for upscaler in shared.sd_upscalers
+            if upscaler.name
+            == get_sd_option("faceswaplab_upscaled_swapper_upscaler", "LDSR")
+        ),
+        None,
+    )
 
 
 def merge_images_with_mask(
@@ -52,8 +55,7 @@ def merge_images_with_mask(
     masked_region = cv2.bitwise_and(image2, image2, mask=mask)
     inverse_mask = cv2.bitwise_not(mask)
     empty_region = cv2.bitwise_and(image1, image1, mask=inverse_mask)
-    merged_image = cv2.add(empty_region, masked_region)
-    return merged_image
+    return cv2.add(empty_region, masked_region)
 
 
 def erode_mask(mask: CV2ImgU8, kernel_size: int = 3, iterations: int = 1) -> CV2ImgU8:
@@ -69,8 +71,7 @@ def erode_mask(mask: CV2ImgU8, kernel_size: int = 3, iterations: int = 1) -> CV2
         CV2Img: The eroded mask.
     """
     kernel = np.ones((kernel_size, kernel_size), np.uint8)
-    eroded_mask = cv2.erode(mask, kernel, iterations=iterations)
-    return eroded_mask
+    return cv2.erode(mask, kernel, iterations=iterations)
 
 
 def apply_gaussian_blur(
@@ -87,8 +88,7 @@ def apply_gaussian_blur(
     Returns:
         CV2Img: The blurred mask.
     """
-    blurred_mask = cv2.GaussianBlur(mask, kernel_size, sigma_x)
-    return blurred_mask
+    return cv2.GaussianBlur(mask, kernel_size, sigma_x)
 
 
 def dilate_mask(mask: CV2ImgU8, kernel_size: int = 5, iterations: int = 1) -> CV2ImgU8:
@@ -104,8 +104,7 @@ def dilate_mask(mask: CV2ImgU8, kernel_size: int = 5, iterations: int = 1) -> CV
         CV2Img: The dilated mask.
     """
     kernel = np.ones((kernel_size, kernel_size), np.uint8)
-    dilated_mask = cv2.dilate(mask, kernel, iterations=iterations)
-    return dilated_mask
+    return cv2.dilate(mask, kernel, iterations=iterations)
 
 
 def get_face_mask(aimg: CV2ImgU8, bgr_fake: CV2ImgU8) -> CV2ImgU8:
@@ -121,8 +120,7 @@ def get_face_mask(aimg: CV2ImgU8, bgr_fake: CV2ImgU8) -> CV2ImgU8:
     """
     mask1 = generate_face_mask(aimg, device=shared.device)
     mask2 = generate_face_mask(bgr_fake, device=shared.device)
-    mask = dilate_mask(cv2.bitwise_or(mask1, mask2))
-    return mask
+    return dilate_mask(cv2.bitwise_or(mask1, mask2))
 
 
 class UpscaledINSwapper(INSwapper):
@@ -186,141 +184,140 @@ class UpscaledINSwapper(INSwapper):
         try:
             if not paste_back:
                 return bgr_fake, M
-            else:
-                target_img = img
+            target_img = img
 
-                def compute_diff(bgr_fake: CV2ImgU8, aimg: CV2ImgU8) -> CV2ImgU8:
-                    fake_diff = bgr_fake.astype(np.float32) - aimg.astype(np.float32)
-                    fake_diff = np.abs(fake_diff).mean(axis=2)
-                    fake_diff[:2, :] = 0
-                    fake_diff[-2:, :] = 0
-                    fake_diff[:, :2] = 0
-                    fake_diff[:, -2:] = 0
-                    return fake_diff
+            def compute_diff(bgr_fake: CV2ImgU8, aimg: CV2ImgU8) -> CV2ImgU8:
+                fake_diff = bgr_fake.astype(np.float32) - aimg.astype(np.float32)
+                fake_diff = np.abs(fake_diff).mean(axis=2)
+                fake_diff[:2, :] = 0
+                fake_diff[-2:, :] = 0
+                fake_diff[:, :2] = 0
+                fake_diff[:, -2:] = 0
+                return fake_diff
 
-                if options:
-                    logger.info("*" * 80)
-                    logger.info(f"Inswapper")
+            if options:
+                logger.info("*" * 80)
+                logger.info("Inswapper")
 
-                    if options.upscaler_name and options.upscaler_name != "None":
-                        # Upscale original image
-                        k = 4
-                        aimg, M = face_align.norm_crop2(
-                            img, target_face.kps, self.input_size[0] * k
-                        )
-                    else:
-                        k = 1
-
-                    # upscale and restore face :
-                    bgr_fake = self.upscale_and_restore(
-                        bgr_fake, inswapper_options=options, k=k
+                if options.upscaler_name and options.upscaler_name != "None":
+                    # Upscale original image
+                    k = 4
+                    aimg, M = face_align.norm_crop2(
+                        img, target_face.kps, self.input_size[0] * k
                     )
-
-                    fake_diff: CV2ImgU8 = None  # type: ignore
-
-                    if not options.improved_mask:
-                        # If improved mask is not used, we should compute before sharpen and color correction (better diff)
-                        fake_diff = compute_diff(bgr_fake, aimg=aimg)
-
-                    if options.sharpen:
-                        logger.info("sharpen")
-                        # Add sharpness
-                        blurred = cv2.GaussianBlur(bgr_fake, (0, 0), 3)
-                        bgr_fake = cv2.addWeighted(bgr_fake, 1.5, blurred, -0.5, 0)
-
-                    # Apply color corrections
-                    if options.color_corrections:
-                        logger.info("color correction")
-                        correction = processing.setup_color_correction(cv2_to_pil(aimg))
-                        bgr_fake_pil = processing.apply_color_correction(
-                            correction, cv2_to_pil(bgr_fake)
-                        )
-                        bgr_fake = pil_to_cv2(bgr_fake_pil)
-
-                    if options.improved_mask:
-                        if k == 1:
-                            logger.warning(
-                                "Please note that improved mask does not work well without upscaling. Set upscaling to Lanczos at least if you want speed and want to use improved mask."
-                            )
-
-                        logger.info("improved_mask")
-                        mask = get_face_mask(aimg, bgr_fake)
-                        # save_img_debug(cv2_to_pil(bgr_fake), "Before Mask")
-                        bgr_fake = merge_images_with_mask(aimg, bgr_fake, mask)
-                        # save_img_debug(cv2_to_pil(bgr_fake), "After Mask")
-
-                        fake_diff = compute_diff(bgr_fake, aimg=aimg)
-
-                    assert (
-                        fake_diff is not None
-                    ), "fake diff is None, this should not happen"
-
-                    logger.info("*" * 80)
-
                 else:
-                    fake_diff = compute_diff(bgr_fake, aimg)
+                    k = 1
 
-                IM = cv2.invertAffineTransform(M)
-
-                img_white = np.full(
-                    (aimg.shape[0], aimg.shape[1]), 255, dtype=np.float32
-                )
-                bgr_fake = cv2.warpAffine(
-                    bgr_fake,
-                    IM,
-                    (target_img.shape[1], target_img.shape[0]),
-                    borderValue=0.0,
-                )
-                img_white = cv2.warpAffine(
-                    img_white,
-                    IM,
-                    (target_img.shape[1], target_img.shape[0]),
-                    borderValue=0.0,
+                # upscale and restore face :
+                bgr_fake = self.upscale_and_restore(
+                    bgr_fake, inswapper_options=options, k=k
                 )
 
-                fake_diff = cv2.warpAffine(
-                    fake_diff,
-                    IM,
-                    (target_img.shape[1], target_img.shape[0]),
-                    borderValue=0.0,
-                )
-                img_white[img_white > 20] = 255
-                fthresh = 10
-                fake_diff[fake_diff < fthresh] = 0
-                fake_diff[fake_diff >= fthresh] = 255
-                img_mask = img_white
-                mask_h_inds, mask_w_inds = np.where(img_mask == 255)
-                mask_h = np.max(mask_h_inds) - np.min(mask_h_inds)
-                mask_w = np.max(mask_w_inds) - np.min(mask_w_inds)
-                mask_size = int(np.sqrt(mask_h * mask_w))
-                erosion_factor = options.erosion_factor if options else 1
+                fake_diff: CV2ImgU8 = None  # type: ignore
 
-                k = max(int(mask_size // 10 * erosion_factor), int(10 * erosion_factor))
+                if not options.improved_mask:
+                    # If improved mask is not used, we should compute before sharpen and color correction (better diff)
+                    fake_diff = compute_diff(bgr_fake, aimg=aimg)
 
-                kernel = np.ones((k, k), np.uint8)
-                img_mask = cv2.erode(img_mask, kernel, iterations=1)
-                kernel = np.ones((2, 2), np.uint8)
-                fake_diff = cv2.dilate(fake_diff, kernel, iterations=1)
-                k = max(int(mask_size // 20 * erosion_factor), int(5 * erosion_factor))
+                if options.sharpen:
+                    logger.info("sharpen")
+                    # Add sharpness
+                    blurred = cv2.GaussianBlur(bgr_fake, (0, 0), 3)
+                    bgr_fake = cv2.addWeighted(bgr_fake, 1.5, blurred, -0.5, 0)
 
-                kernel_size = (k, k)
-                blur_size = tuple(2 * i + 1 for i in kernel_size)
-                img_mask = cv2.GaussianBlur(img_mask, blur_size, 0)
-                k = int(5 * erosion_factor)
-                kernel_size = (k, k)
-                blur_size = tuple(2 * i + 1 for i in kernel_size)
-                fake_diff = cv2.GaussianBlur(fake_diff, blur_size, 0)
-                img_mask /= 255
-                fake_diff /= 255
+                # Apply color corrections
+                if options.color_corrections:
+                    logger.info("color correction")
+                    correction = processing.setup_color_correction(cv2_to_pil(aimg))
+                    bgr_fake_pil = processing.apply_color_correction(
+                        correction, cv2_to_pil(bgr_fake)
+                    )
+                    bgr_fake = pil_to_cv2(bgr_fake_pil)
 
-                img_mask = np.reshape(
-                    img_mask, [img_mask.shape[0], img_mask.shape[1], 1]
-                )
-                fake_merged = img_mask * bgr_fake + (1 - img_mask) * target_img.astype(
-                    np.float32
-                )
-                fake_merged = fake_merged.astype(np.uint8)
-                return fake_merged
+                if options.improved_mask:
+                    if k == 1:
+                        logger.warning(
+                            "Please note that improved mask does not work well without upscaling. Set upscaling to Lanczos at least if you want speed and want to use improved mask."
+                        )
+
+                    logger.info("improved_mask")
+                    mask = get_face_mask(aimg, bgr_fake)
+                    # save_img_debug(cv2_to_pil(bgr_fake), "Before Mask")
+                    bgr_fake = merge_images_with_mask(aimg, bgr_fake, mask)
+                    # save_img_debug(cv2_to_pil(bgr_fake), "After Mask")
+
+                    fake_diff = compute_diff(bgr_fake, aimg=aimg)
+
+                assert (
+                    fake_diff is not None
+                ), "fake diff is None, this should not happen"
+
+                logger.info("*" * 80)
+
+            else:
+                fake_diff = compute_diff(bgr_fake, aimg)
+
+            IM = cv2.invertAffineTransform(M)
+
+            img_white = np.full(
+                (aimg.shape[0], aimg.shape[1]), 255, dtype=np.float32
+            )
+            bgr_fake = cv2.warpAffine(
+                bgr_fake,
+                IM,
+                (target_img.shape[1], target_img.shape[0]),
+                borderValue=0.0,
+            )
+            img_white = cv2.warpAffine(
+                img_white,
+                IM,
+                (target_img.shape[1], target_img.shape[0]),
+                borderValue=0.0,
+            )
+
+            fake_diff = cv2.warpAffine(
+                fake_diff,
+                IM,
+                (target_img.shape[1], target_img.shape[0]),
+                borderValue=0.0,
+            )
+            img_white[img_white > 20] = 255
+            fthresh = 10
+            fake_diff[fake_diff < fthresh] = 0
+            fake_diff[fake_diff >= fthresh] = 255
+            img_mask = img_white
+            mask_h_inds, mask_w_inds = np.where(img_mask == 255)
+            mask_h = np.max(mask_h_inds) - np.min(mask_h_inds)
+            mask_w = np.max(mask_w_inds) - np.min(mask_w_inds)
+            mask_size = int(np.sqrt(mask_h * mask_w))
+            erosion_factor = options.erosion_factor if options else 1
+
+            k = max(int(mask_size // 10 * erosion_factor), int(10 * erosion_factor))
+
+            kernel = np.ones((k, k), np.uint8)
+            img_mask = cv2.erode(img_mask, kernel, iterations=1)
+            kernel = np.ones((2, 2), np.uint8)
+            fake_diff = cv2.dilate(fake_diff, kernel, iterations=1)
+            k = max(int(mask_size // 20 * erosion_factor), int(5 * erosion_factor))
+
+            kernel_size = (k, k)
+            blur_size = tuple(2 * i + 1 for i in kernel_size)
+            img_mask = cv2.GaussianBlur(img_mask, blur_size, 0)
+            k = int(5 * erosion_factor)
+            kernel_size = (k, k)
+            blur_size = tuple(2 * i + 1 for i in kernel_size)
+            fake_diff = cv2.GaussianBlur(fake_diff, blur_size, 0)
+            img_mask /= 255
+            fake_diff /= 255
+
+            img_mask = np.reshape(
+                img_mask, [img_mask.shape[0], img_mask.shape[1], 1]
+            )
+            fake_merged = img_mask * bgr_fake + (1 - img_mask) * target_img.astype(
+                np.float32
+            )
+            fake_merged = fake_merged.astype(np.uint8)
+            return fake_merged
         except Exception as e:
             import traceback
 

@@ -96,7 +96,7 @@ class FaceSwapUnitSettings:
         faces_index = {
             int(x) for x in self._faces_index.strip(",").split(",") if x.isnumeric()
         }
-        if len(faces_index) == 0:
+        if not faces_index:
             return {0}
 
         logger.debug("FACES INDEX : %s", faces_index)
@@ -166,11 +166,7 @@ class FaceSwapUnitSettings:
                 [self.reference_face] if self.reference_face is not None else []
             )
             for file in self.batch_files:
-                if isinstance(file, Image.Image):
-                    img = file
-                else:
-                    img = Image.open(file.name)  # type: ignore
-
+                img = file if isinstance(file, Image.Image) else Image.open(file.name)
                 face = swapper.get_or_default(
                     swapper.get_faces(pil_to_cv2(img)), 0, None
                 )
